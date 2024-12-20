@@ -2,6 +2,7 @@ package md5hash
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,7 +40,7 @@ func Query[T table](v T) (string, error) {
 
 	arr := make([]string, 0, len(it))
 	for _, i := range it {
-		arr = append(arr, "\""+i.name+"\"") // quoted because of non lowercased column names
+		arr = append(arr, "\""+i.name+"\"::text") // quoted because of non lowercased column names
 	}
 	return fmt.Sprintf("SELECT md5_chain(%s) FROM %s", strings.Join(arr, "||"), n), nil
 
@@ -73,11 +74,11 @@ func Value(x any) (string, error) {
 	return b.String(), nil
 }
 
-// elem returns value of pointers and true.
+// elem returns value of pointers and true if the pointer is not nil.
 // It otherwise creates zero values of nil pointers and returns false.
 //
 // It differs from reflect.Indirect in that, it creates zero value
-// of the ELEMENT if v is a nil pointer instead of creating zero value of pointers.
+// of the ELEMENT if v is a nil pointer instead of creating zero value of pointers which is still nil anyways.
 func elem(v reflect.Value) (reflect.Value, bool) {
 	if v.Type().Kind() == reflect.Ptr {
 		if v.IsNil() {
@@ -88,6 +89,7 @@ func elem(v reflect.Value) (reflect.Value, bool) {
 	return v, true
 }
 
+// getItems returns empty list of items if v is a nil pointer and ignoreNilPtr is false.
 func getItems(v reflect.Value, ignoreNilPtr bool) ([]item, error) {
 	v, ok := elem(v)
 	if !ok && !ignoreNilPtr {
@@ -114,6 +116,10 @@ func getItems(v reflect.Value, ignoreNilPtr bool) ([]item, error) {
 		md, ok := f.Tag.Lookup("hash")
 		if !ok {
 			it = append(it, item{name: strcase.ToSnake(f.Name), value: strValue(v.Field(i)), pos: len(it)})
+			continue
+		}
+
+		if md == "-" {
 			continue
 		}
 
@@ -147,6 +153,16 @@ func strValue(v reflect.Value) string {
 			return string(bytes)
 		}
 		fallthrough
+	case reflect.Pointer:
+		var ok bool
+		v, ok = elem(v)
+		if !ok {
+			return ""
+		}
+		return strValue(v)
+	case reflect.Struct:
+		b, _ := json.Marshal(v.Interface())
+		return string(b)
 	default:
 		return fmt.Sprintf("%v", v.Interface())
 	}

@@ -3,9 +3,10 @@ package md5hash
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lordvidex/gostream/internal/entity"
 	gostreamv1 "github.com/lordvidex/gostream/pkg/api/gostream/v1"
-	"github.com/stretchr/testify/assert"
 )
 
 type sample struct {
@@ -101,12 +102,12 @@ func TestQuery(t *testing.T) {
 		{
 			name: "user hash query",
 			it:   &entity.User{User: &gostreamv1.User{Id: 1, Name: "Test Tester", Age: 10, Nationality: "RU"}},
-			want: `SELECT md5_chain("id"||"name"||"age"||"nationality") FROM stream_users`,
+			want: `SELECT md5_chain("id"::text||"name"::text||"age"::text||"nationality"::text) FROM stream_users`,
 		},
 		{
 			name: "empty struct",
 			it:   entity.User{},
-			want: `SELECT md5_chain("id"||"name"||"age"||"nationality") FROM stream_users`,
+			want: `SELECT md5_chain("id"::text||"name"::text||"age"::text||"nationality"::text) FROM stream_users`,
 		},
 		{
 			name: "sample table query",
@@ -119,7 +120,7 @@ func TestQuery(t *testing.T) {
 				},
 				embedBottom: embedBottom{MiddleName: "Middle"},
 			},
-			want: `SELECT md5_chain("last_name"||"first_name"||"middle_name"||"properties"||"age") FROM sample`,
+			want: `SELECT md5_chain("last_name"::text||"first_name"::text||"middle_name"::text||"properties"::text||"age"::text) FROM sample`,
 		},
 	}
 
